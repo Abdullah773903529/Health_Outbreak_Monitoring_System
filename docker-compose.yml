@@ -1,0 +1,184 @@
+services:
+  # --- Apache Kafka (KRaft Mode) ---
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: Public_Health_Outbreak_Monitoring_kafka
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - CLUSTER_ID=4L62ydkiT9SIUD34Of0egA
+    volumes:
+      - outbreak_kafka_data:/var/lib/kafka/data
+    networks:
+      - outbreak_net
+
+  # --- Kafka UI ---
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: Public_Health_Outbreak_Monitoring_kafka_ui
+    ports:
+      - "8085:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local-cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
+    depends_on:
+      - kafka
+    networks:
+      - outbreak_net
+
+  # --- Spark Master ---
+  spark-master:
+    image: easewithdata/spark-master:3.5.5
+    container_name: Public_Health_Outbreak_Monitoring_spark_master
+    ports:
+      - "8090:8080"
+      - "7077:7077"
+    environment:
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+    networks:
+      - outbreak_net
+
+  # --- Spark Worker ---
+  spark-worker:
+    image: easewithdata/spark-worker:3.5.5
+    container_name: Public_Health_Outbreak_Monitoring_spark_worker
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    networks:
+      - outbreak_net
+
+  # --- PostgreSQL Data Warehouse ---
+  postgres-dw:
+    image: postgres:14-alpine
+    container_name: Public_Health_Outbreak_Monitoring_postgres_dw
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: abdullah_developer
+      POSTGRES_PASSWORD: MySecurePassword123
+      POSTGRES_DB: data_warehouse_db
+    volumes:
+      - outbreak_pgdata_dw:/var/lib/postgresql/data
+    networks:
+      - outbreak_net
+
+  # --- PostgreSQL Dagster Metadata ---
+  postgres-dagster:
+    image: postgres:14-alpine
+    container_name: Public_Health_Outbreak_Monitoring_postgres_dagster
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: dagster_user
+      POSTGRES_PASSWORD: DagsterSecurePassword123
+      POSTGRES_DB: dagster_db
+    volumes:
+      - outbreak_pgdata_dagster:/var/lib/postgresql/data
+    networks:
+      - outbreak_net
+
+  # --- Metabase ---
+  metabase:
+    image: metabase/metabase:v0.46.0
+    container_name: Public_Health_Outbreak_Monitoring_metabase
+    environment:
+      - MB_DB_TYPE=postgres
+      - MB_DB_DBNAME=data_warehouse_db
+      - MB_DB_PORT=5432
+      - MB_DB_USER=abdullah_developer
+      - MB_DB_PASS=MySecurePassword123
+      - MB_DB_HOST=postgres-dw
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres-dw
+    networks:
+      - outbreak_net
+
+  # --- MinIO ---
+  minio:
+    image: minio/minio:RELEASE.2023-12-09T18-17-51Z
+    container_name: Public_Health_Outbreak_Monitoring_minio
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    command: server /data --console-address ":9001"
+    volumes:
+      - outbreak_minio_data:/data
+    networks:
+      - outbreak_net
+
+  # --- Dagster Webserver ---
+  dagster-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: Public_Health_Outbreak_Monitoring_dagster_webserver
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./dagster_code:/opt/dagster/app
+      - outbreak_dagster_storage:/opt/dagster/storage
+    working_dir: /opt/dagster/app
+    environment:
+      - DAGSTER_HOME=/opt/dagster/app
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - PYTHONPATH=/opt/dagster/app
+      - SPARK_LOCAL_IP=0.0.0.0
+    depends_on:
+      - kafka
+      - spark-master
+      - postgres-dw
+      - postgres-dagster
+      - minio
+    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000"]
+    networks:
+      - outbreak_net
+
+  # --- Dagster Daemon ---
+  dagster-daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: Public_Health_Outbreak_Monitoring_dagster_daemon
+    volumes:
+      - ./dagster_code:/opt/dagster/app
+      - outbreak_dagster_storage:/opt/dagster/storage
+    working_dir: /opt/dagster/app
+    environment:
+      - DAGSTER_HOME=/opt/dagster/app
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - PYTHONPATH=/opt/dagster/app
+      - SPARK_LOCAL_IP=0.0.0.0
+    depends_on:
+      - dagster-webserver
+    command: ["dagster-daemon", "run"]
+    networks:
+      - outbreak_net
+
+networks:
+  outbreak_net:
+    driver: bridge
+
+volumes:
+  outbreak_pgdata_dw:
+  outbreak_pgdata_dagster:
+  outbreak_kafka_data:
+  outbreak_dagster_storage:
+  outbreak_minio_data:

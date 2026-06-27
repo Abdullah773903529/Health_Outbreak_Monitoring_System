@@ -1,0 +1,22 @@
+storage:
+  postgres:
+    postgres_db:
+      username: dagster_user
+      password: DagsterSecurePassword123
+      hostname: postgres-dagster
+      db_name: dagster_db
+      port: 5432
+
+compute_logs:
+  module: dagster.core.storage.local_compute_log_manager
+  class: LocalComputeLogManager
+  config:
+    base_dir: "/opt/dagster/storage/logs"
+
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: DefaultRunCoordinator
+
+run_retries:
+  max_retries: 3
+  retry_on_asset_or_op_failure: true

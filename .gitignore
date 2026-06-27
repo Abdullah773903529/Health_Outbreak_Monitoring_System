@@ -1,0 +1,24 @@
+# ملفات المجلدات المؤقتة
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# ملفات Spark و MinIO المؤقتة
+.sparkStaging/
+metastore_db/
+derby.log
+
+# ملفات Dagster المؤقتة
+storage/
+dagster_home/
+.dagster/
+
+# بيانات الحاويات (حساسة جداً لا ترفعها!)
+minio_data/
+postgres_data/
+
+# ملفات البيئة
+.env
+.venv/
+env/
+.DS_Store
