@@ -22,3 +22,11 @@ postgres_data/
 .venv/
 env/
 .DS_Store
+# Logs
+logs/
+*.log
+
+shared_jars/*.jar
+# Dagster
+storage/
+.history/

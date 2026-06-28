@@ -1,19 +1,34 @@
-# dagster_code/assets/batch/utils.py
 import os
 from pyspark.sql import SparkSession
 
 def get_spark_session(app_name="Dagster_Spark_Job"):
     MINIO_ENDPOINT = "http://minio:9000" 
     SPARK_MASTER = "spark://spark-master:7077"
+    
+    # تعريف المسارات الموحدة للملفات الجديدة
+    JARS = [
+        "/shared_jars/postgresql-42.7.10.jar",
+        "/shared_jars/hadoop-aws-3.3.4.jar",
+        "/shared_jars/aws-java-sdk-bundle-1.12.262.jar"
+    ]
+    jars_string = ",".join(JARS)
+    classpath_string = ":".join(JARS)
 
     spark = (SparkSession.builder
         .appName(app_name)
         .master(SPARK_MASTER)
         .config("spark.driver.host", "dagster-webserver")
-        # تحديد الذاكرة بوضوح ليتناسب مع ما يراه الـ Worker
         .config("spark.executor.memory", "2g")
         .config("spark.executor.cores", "2")
-        .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262")
+        
+        # إرسال المكتبات لجميع العقد (Workers/Driver)
+        .config("spark.jars", jars_string)
+        
+        # إجبار الـ Driver والـ Executors على رؤية الملفات في الـ ClassPath
+        .config("spark.driver.extraClassPath", classpath_string)
+        .config("spark.executor.extraClassPath", classpath_string)
+        
+        # إزالة spark.jars.packages تماماً لأننا نوفر الملفات يدوياً الآن
         
         # إعدادات الاتصال بـ MinIO
         .config("spark.hadoop.fs.s3a.endpoint", MINIO_ENDPOINT)

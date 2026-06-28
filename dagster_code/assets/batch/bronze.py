@@ -88,5 +88,6 @@ def bronze_raw_outbreak_data():
         raise Exception(f"An error occurred during Bronze ETL process: {e}")
 
     finally:
-        # إغلاق الجلسة دائماً
-        spark.stop()
+        # تم إيقاف هذا السطر للسماح للطبقة الفضية باستكمال العمل على نفس الجلسة
+        # spark.stop()
+        pass

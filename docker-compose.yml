@@ -46,6 +46,8 @@ services:
     environment:
       - SPARK_MASTER_HOST=spark-master
       - SPARK_MASTER_PORT=7077
+    volumes:
+      - ./shared_jars:/shared_jars
     networks:
       - outbreak_net
 
@@ -57,6 +59,8 @@ services:
       - SPARK_MASTER=spark://spark-master:7077
     depends_on:
       - spark-master
+    volumes:
+      - ./shared_jars:/shared_jars
     networks:
       - outbreak_net
 
@@ -135,6 +139,7 @@ services:
     volumes:
       - ./dagster_code:/opt/dagster/app
       - outbreak_dagster_storage:/opt/dagster/storage
+      - ./shared_jars:/shared_jars
     working_dir: /opt/dagster/app
     environment:
       - DAGSTER_HOME=/opt/dagster/app
@@ -160,6 +165,7 @@ services:
     volumes:
       - ./dagster_code:/opt/dagster/app
       - outbreak_dagster_storage:/opt/dagster/storage
+      - ./shared_jars:/shared_jars
     working_dir: /opt/dagster/app
     environment:
       - DAGSTER_HOME=/opt/dagster/app
