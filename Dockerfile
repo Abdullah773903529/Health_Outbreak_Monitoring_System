@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir \
     pyarrow \
     confluent-kafka \
     boto3 \
-    s3fs
+    s3fs \
+    requests
 
 RUN mkdir -p /shared_jars
 COPY shared_jars/ /shared_jars/

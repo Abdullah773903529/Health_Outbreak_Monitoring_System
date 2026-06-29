@@ -64,18 +64,20 @@ services:
     networks:
       - outbreak_net
 
-  # --- PostgreSQL Data Warehouse ---
-  postgres-dw:
-    image: postgres:14-alpine
-    container_name: Public_Health_Outbreak_Monitoring_postgres_dw
+
+  # --- ClickHouse Analytical Database (تمت الإضافة هنا) ---
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: Public_Health_Outbreak_Monitoring_clickhouse
     ports:
-      - "5432:5432"
+      - "8123:8123" # منفذ HTTP للـ JDBC ولوحات التحكم
+      - "9000:9000" # المنفذ الأصلي (Native Client)
     environment:
-      POSTGRES_USER: abdullah_developer
-      POSTGRES_PASSWORD: MySecurePassword123
-      POSTGRES_DB: data_warehouse_db
+      - CLICKHOUSE_DB=data_warehouse_db
+      - CLICKHOUSE_USER=abdullah_developer
+      - CLICKHOUSE_PASSWORD=MySecurePassword123
     volumes:
-      - outbreak_pgdata_dw:/var/lib/postgresql/data
+      - outbreak_clickhouse_data:/var/lib/clickhouse
     networks:
       - outbreak_net
 
@@ -96,19 +98,21 @@ services:
 
   # --- Metabase ---
   metabase:
-    image: metabase/metabase:v0.46.0
+    image: metabase/metabase:latest
     container_name: Public_Health_Outbreak_Monitoring_metabase
     environment:
       - MB_DB_TYPE=postgres
-      - MB_DB_DBNAME=data_warehouse_db
+      - MB_DB_DBNAME=metabase_db
       - MB_DB_PORT=5432
-      - MB_DB_USER=abdullah_developer
-      - MB_DB_PASS=MySecurePassword123
-      - MB_DB_HOST=postgres-dw
+      - MB_DB_USER=dagster_user
+      - MB_DB_PASS=DagsterSecurePassword123
+      - MB_DB_HOST=postgres-dagster
+    volumes:
+    - ./plugins:/plugins
     ports:
       - "3000:3000"
     depends_on:
-      - postgres-dw
+      - postgres-dagster
     networks:
       - outbreak_net
 
@@ -149,7 +153,7 @@ services:
     depends_on:
       - kafka
       - spark-master
-      - postgres-dw
+      - clickhouse # تم الإضافة هنا لضمان تشغيل كليك هاوس أولاً
       - postgres-dagster
       - minio
     command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000"]
@@ -183,8 +187,8 @@ networks:
     driver: bridge
 
 volumes:
-  outbreak_pgdata_dw:
   outbreak_pgdata_dagster:
   outbreak_kafka_data:
   outbreak_dagster_storage:
   outbreak_minio_data:
+  outbreak_clickhouse_data: # تم إضافة الـ Volume الخاص بكليك هاوس لضمان حفظ البيانات دائمًا

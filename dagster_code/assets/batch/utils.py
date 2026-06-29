@@ -5,9 +5,9 @@ def get_spark_session(app_name="Dagster_Spark_Job"):
     MINIO_ENDPOINT = "http://minio:9000" 
     SPARK_MASTER = "spark://spark-master:7077"
     
-    # تعريف المسارات الموحدة للملفات الجديدة
+    # تعريف المسارات الموحدة للملفات الجديدة (تم استبدال درايفر Postgres بدرايفر ClickHouse الجديد)
     JARS = [
-        "/shared_jars/postgresql-42.7.10.jar",
+        "/shared_jars/clickhouse-jdbc-0.6.4-all.jar", # البطل الجديد هنا 🚀
         "/shared_jars/hadoop-aws-3.3.4.jar",
         "/shared_jars/aws-java-sdk-bundle-1.12.262.jar"
     ]

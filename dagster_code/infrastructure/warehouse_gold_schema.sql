@@ -1,45 +1,60 @@
--- تنظيف الجداول القديمة لضمان بناء هيكل نظيف مطابق للطبقة الفضية
-DROP TABLE IF EXISTS fact_outbreaks CASCADE;
-DROP TABLE IF EXISTS dim_disease CASCADE;
-DROP TABLE IF EXISTS dim_location CASCADE;
+CREATE DATABASE IF NOT EXISTS data_warehouse_db;
 
--- 1. جدول الأبعاد المكانية (Dimension: Location)
--- متطابق مع الأعمدة الجغرافية في الطبقة الفضية
-CREATE TABLE dim_location (
-    location_key VARCHAR(255) PRIMARY KEY, -- يتم توليده عبر التشفير (Hash) في Spark
-    iso3 VARCHAR(3) NOT NULL,
-    country VARCHAR(255) NOT NULL,
-    region_code VARCHAR(255),              -- تم التعديل ليطابق withColumnRenamed
-    unsd_region VARCHAR(255),
-    unsd_subregion VARCHAR(255)
+USE data_warehouse_db;
+
+-- ============================================
+-- Dimension: Location
+-- ============================================
+CREATE TABLE IF NOT EXISTS dim_location
+(
+    location_key String,
+    iso3 FixedString(3),
+    country String,
+    region_code Nullable(String),
+    unsd_region Nullable(String),
+    unsd_subregion Nullable(String)
+)
+ENGINE = MergeTree() -- إضافة الأقواس هنا
+ORDER BY location_key;
+
+-- ============================================
+-- Dimension: Disease
+-- ============================================
+CREATE TABLE IF NOT EXISTS dim_disease
+(
+    disease_key Int32,
+    disease_name String,
+    definition Nullable(String),
+    icd10_general Nullable(String),
+    icd104_specific Nullable(String),
+    start_date Date,
+    end_date Nullable(Date),
+    is_current UInt8
+)
+ENGINE = MergeTree()
+ORDER BY disease_key;
+
+
+
+-- ============================================
+-- Fact Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS fact_outbreaks
+(
+    outbreak_id String,
+    location_key String,
+    disease_key Int32,
+    report_year Int32,
+    don_id String,
+    outbreak_count Int32 DEFAULT 1,
+    ingestion_timestamp DateTime DEFAULT now()
+)
+ENGINE = MergeTree() -- إضافة الأقواس هنا
+PARTITION BY report_year
+ORDER BY (
+    report_year,
+    disease_key,
+    location_key,
+    outbreak_id,
+    don_id
 );
-
--- 2. جدول الأبعاد الطبية (Dimension: Disease)
--- متطابق مع البيانات الطبية مع دعم التغيرات التاريخية (SCD Type 2)
-CREATE TABLE dim_disease (
-    disease_key SERIAL PRIMARY KEY,
-    disease_name VARCHAR(255) NOT NULL,
-    definition TEXT,
-    icd10_general VARCHAR(50),
-    icd104_specific VARCHAR(50),           -- تمت إضافته بناءً على كود Silver
-    start_date DATE NOT NULL,
-    end_date DATE,
-    is_current BOOLEAN DEFAULT TRUE
-);
-
--- 3. جدول الحقائق المركزي (Fact: Outbreaks)
--- متطابق مع المقاييس والأرقام المتوفرة
-CREATE TABLE fact_outbreaks (
-    outbreak_id VARCHAR(255) PRIMARY KEY,
-    location_key VARCHAR(255) REFERENCES dim_location(location_key),
-    disease_key INTEGER REFERENCES dim_disease(disease_key),
-    report_year INTEGER NOT NULL,          -- يطابق عمود year في الـ Silver
-    don_id VARCHAR(100),
-    outbreak_count INTEGER DEFAULT 1,      -- يطابق العمود المضاف في الـ Silver
-    ingestion_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- إضافة الفهارس (Indexes) لتحسين سرعة الاستعلامات في لوحة التحكم
-CREATE INDEX idx_fact_year ON fact_outbreaks(report_year);
-CREATE INDEX idx_fact_location ON fact_outbreaks(location_key);
-CREATE INDEX idx_fact_disease ON fact_outbreaks(disease_key);

@@ -1,9 +1,4 @@
--- احذف جميع الجداول بالترتيب العكسي (لأن الحقائق تعتمد على الأبعاد)
-DROP TABLE IF EXISTS fact_outbreaks CASCADE;
-DROP TABLE IF EXISTS dim_disease CASCADE;
-DROP TABLE IF EXISTS dim_location CASCADE;
 
--- الآن أعد بناء الجداول
 CREATE TABLE dim_location (
     location_key VARCHAR(255) PRIMARY KEY,
     iso3 VARCHAR(3) NOT NULL,
