@@ -145,6 +145,8 @@ services:
       - outbreak_dagster_storage:/opt/dagster/storage
       - ./shared_jars:/shared_jars
     working_dir: /opt/dagster/app
+    env_file:
+      - .env
     environment:
       - DAGSTER_HOME=/opt/dagster/app
       - SPARK_MASTER_URL=spark://spark-master:7077
@@ -171,6 +173,8 @@ services:
       - outbreak_dagster_storage:/opt/dagster/storage
       - ./shared_jars:/shared_jars
     working_dir: /opt/dagster/app
+    env_file:
+    - .env
     environment:
       - DAGSTER_HOME=/opt/dagster/app
       - SPARK_MASTER_URL=spark://spark-master:7077

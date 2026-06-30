@@ -58,3 +58,18 @@ ORDER BY (
     outbreak_id,
     don_id
 );
+
+
+CREATE TABLE IF NOT EXISTS data_warehouse_db.fact_outbreak_alerts
+(
+    alert_id UUID DEFAULT generateUUIDv4(),
+    disease_name String,
+    country String, -- العمود الجديد
+    published_at DateTime,
+    ingestion_time DateTime DEFAULT now(),
+    title String,
+    source String,
+    url String
+)
+ENGINE = MergeTree
+ORDER BY (country, disease_name, published_at);

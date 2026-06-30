@@ -1,0 +1,14 @@
+dagster
+dagster-webserver
+dagster-postgres
+pyspark==3.5.5
+psycopg2-binary
+pandas
+pyarrow
+confluent-kafka
+boto3
+s3fs
+requests
+python-dotenv
+kafka-python
+clickhouse-driver
