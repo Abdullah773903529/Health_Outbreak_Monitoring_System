@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS dim_location
     unsd_region Nullable(String),
     unsd_subregion Nullable(String)
 )
-ENGINE = MergeTree() -- إضافة الأقواس هنا
+ENGINE = MergeTree()
 ORDER BY location_key;
 
 -- ============================================
@@ -34,10 +34,8 @@ CREATE TABLE IF NOT EXISTS dim_disease
 ENGINE = MergeTree()
 ORDER BY disease_key;
 
-
-
 -- ============================================
--- Fact Table
+-- Fact Table (Historical Data)
 -- ============================================
 CREATE TABLE IF NOT EXISTS fact_outbreaks
 (
@@ -49,7 +47,7 @@ CREATE TABLE IF NOT EXISTS fact_outbreaks
     outbreak_count Int32 DEFAULT 1,
     ingestion_timestamp DateTime DEFAULT now()
 )
-ENGINE = MergeTree() -- إضافة الأقواس هنا
+ENGINE = MergeTree()
 PARTITION BY report_year
 ORDER BY (
     report_year,
@@ -59,17 +57,19 @@ ORDER BY (
     don_id
 );
 
-
-CREATE TABLE IF NOT EXISTS data_warehouse_db.fact_outbreak_alerts
+-- ============================================
+-- Streaming Fact Table (Live Alerts)
+-- ============================================
+CREATE TABLE IF NOT EXISTS fact_outbreak_alerts
 (
     alert_id UUID DEFAULT generateUUIDv4(),
     disease_name String,
-    country String, -- العمود الجديد
+    country String,
     published_at DateTime,
     ingestion_time DateTime DEFAULT now(),
     title String,
     source String,
     url String
 )
-ENGINE = MergeTree
+ENGINE = MergeTree()
 ORDER BY (country, disease_name, published_at);

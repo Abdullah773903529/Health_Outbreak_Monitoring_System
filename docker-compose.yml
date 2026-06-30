@@ -1,5 +1,5 @@
 services:
-  # --- Apache Kafka (KRaft Mode) ---
+ # --- Apache Kafka (KRaft Mode) ---
   kafka:
     image: apache/kafka:3.7.0
     container_name: Public_Health_Outbreak_Monitoring_kafka
@@ -8,6 +8,7 @@ services:
     environment:
       - KAFKA_NODE_ID=1
       - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_LOG_DIRS=/var/lib/kafka/data  
       - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092
       - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
@@ -185,7 +186,31 @@ services:
     command: ["dagster-daemon", "run"]
     networks:
       - outbreak_net
-
+  # --- Spark Streaming Consumer (Continuous Service) ---
+  spark-streaming-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: Public_Health_Outbreak_Monitoring_streaming_consumer
+    restart: always # لضمان إعادة تشغيل الخدمة تلقائياً إذا توقفت لأي سبب
+    volumes:
+      - ./dagster_code:/opt/dagster/app
+      - ./shared_jars:/shared_jars
+    working_dir: /opt/dagster/app
+    env_file:
+      - .env
+    environment:
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - KAFKA_BROKER=kafka:29092
+      - CLICKHOUSE_HOST=clickhouse
+    depends_on:
+      - kafka
+      - spark-master
+      - clickhouse
+    # تشغيل ملف البايثون مباشرة كعملية مستمرة
+    command: ["python", "assets/streaming/news_consumer.py"]
+    networks:
+      - outbreak_net
 networks:
   outbreak_net:
     driver: bridge
