@@ -50,6 +50,55 @@ def silver_cleaned_outbreaks():
         if col_name in df_cleaned.columns:
             df_cleaned = df_cleaned.withColumn(col_name, F.trim(F.col(col_name)))
 
+    # ---------------------------------------------------------
+    # الإضافات الجديدة: معالجة البيانات الاستثنائية (Business Logic)
+    # ---------------------------------------------------------
+
+    # 4.1 تصحيح أخطاء الترميز (Encoding) في أسماء الدول المحددة
+    df_cleaned = df_cleaned.withColumn(
+        "country",
+        F.when(F.col("country").like("C%TE D'IVOIRE"), "COTE D'IVOIRE")
+         .when(F.col("country").like("R%UNION"), "REUNION")
+         .when(F.col("country").like("CURA%AO"), "CURACAO")
+         .when(F.col("country").like("SAINT BARTH%LEMY"), "SAINT BARTHELEMY")
+         .otherwise(F.col("country"))
+    )
+
+    # 4.2 تعبئة الأقاليم الجغرافية المفقودة (Null Regions) بناءً على اسم الدولة
+    americas_countries = [
+        'SAINT BARTHELEMY', 'ANGUILLA', 'CURACAO', 'BERMUDA', 
+        'SAINT PIERRE AND MIQUELON', 'BONAIRE SINT EUSTATIUS AND SABA', 
+        'MARTINIQUE', 'SAINT MARTIN (FRENCH PART)', 'MONTSERRAT', 
+        'SINT MAARTEN (DUTCH PART)', 'VIRGIN ISLANDS (BRITISH)', 
+        'FALKLAND ISLANDS (MALVINAS)', 'PUERTO RICO', 'FRENCH GUIANA', 
+        'VIRGIN ISLANDS (U.S.)', 'TURKS AND CAICOS ISLANDS', 
+        'ARUBA', 'GUADELOUPE', 'CAYMAN ISLANDS'
+    ]
+    europe_countries = [
+        'KOSOVO', 'GREENLAND', 'HOLY SEE', 'JERSEY', 'GIBRALTAR', 
+        'FAROE ISLANDS', 'GUERNSEY', 'ISLE OF MAN', 'LIECHTENSTEIN'
+    ]
+    asia_countries = ['TAIWAN PROVINCE OF CHINA', 'MACAO', 'PALESTINE STATE OF', 'HONG KONG']
+    africa_countries = ['SAINT HELENA ASCENSION AND TRISTAN DA CUNHA', 'REUNION', 'MAYOTTE']
+    oceania_countries = [
+        'TOKELAU', 'AMERICAN SAMOA', 'FRENCH POLYNESIA', 'NEW CALEDONIA', 
+        'GUAM', 'NORTHERN MARIANA ISLANDS', 'PITCAIRN', 'WALLIS AND FUTUNA'
+    ]
+
+    df_cleaned = df_cleaned.withColumn(
+        "who_region",
+        F.when(F.col("who_region").isNull() & F.col("country").isin(americas_countries), "Americas")
+         .when(F.col("who_region").isNull() & F.col("country").isin(europe_countries), "Europe")
+         .when(F.col("who_region").isNull() & F.col("country").isin(asia_countries), "Asia")
+         .when(F.col("who_region").isNull() & F.col("country").isin(africa_countries), "Africa")
+         .when(F.col("who_region").isNull() & F.col("country").isin(oceania_countries), "Oceania")
+         .otherwise(F.col("who_region"))
+    )
+
+    # ---------------------------------------------------------
+    # نهاية الإضافات الجديدة
+    # ---------------------------------------------------------
+
     # 5. معالجة القيم الفارغة الخاصة وتغيير أسماء الأعمدة المعيارية
     df_cleaned = (
         df_cleaned

@@ -1,0 +1,3 @@
+id_outbreak,Year,icd10n,icd103n,icd104n,icd10c,icd103c,icd104c,Disease,Definition,Country,iso2,iso3,unsd_region,unsd_subregion,who_region,DONs
+2026YEM,2026,Provisional assignment of new diseases of uncertain etiology or emergency use,Cholera,Cholera,A00,A00,A00,Cholera,A bacterial disease,Yemen,YE,YEM,Asia,Western Asia,Eastern Mediterranean Region,DON2028
+2026TZA,2026,Provisional assignment of new diseases of uncertain etiology or emergency use,COVID-19,COVID-19,U07,U07,U071,COVID-19,Infectious disease,Tanzania,TZ,TZA,Africa,Eastern Africa,African Region,DON2029

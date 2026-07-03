@@ -12,3 +12,4 @@ requests
 python-dotenv
 kafka-python
 clickhouse-driver
+spacy

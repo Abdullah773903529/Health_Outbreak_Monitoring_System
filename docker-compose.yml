@@ -196,6 +196,7 @@ services:
     volumes:
       - ./dagster_code:/opt/dagster/app
       - ./shared_jars:/shared_jars
+      - ./checkpoints/outbreak_consumer:/opt/spark/checkpoints/outbreak_consumer
     working_dir: /opt/dagster/app
     env_file:
       - .env

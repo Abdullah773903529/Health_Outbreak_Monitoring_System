@@ -21,6 +21,17 @@ def get_spark_session(app_name="Dagster_Spark_Job"):
         .config("spark.executor.memory", "2g")
         .config("spark.executor.cores", "2")
         
+        # ✅ حل مشكلة Python Version Mismatch بين Driver و Worker
+        # Driver (Dagster) يستخدم Python 3.10
+        .config("spark.pyspark.driver.python", "/usr/local/bin/python3.10")
+        # Worker قد يستخدم Python 3.7 أو 3.8 - نجرب المسارات المتاحة
+        .config("spark.pyspark.python", "python3")  
+        # نجبر الـ Executors على استخدام نفس إصدار Python
+        .config("spark.executorEnv.PYSPARK_PYTHON", "python3")
+        .config("spark.executorEnv.PYSPARK_DRIVER_PYTHON", "/usr/local/bin/python3.10")
+        # نضيف مسار المكتبات للـ Executors
+        .config("spark.executorEnv.PYTHONPATH", "/opt/dagster/app")
+        
         # إرسال المكتبات لجميع العقد (Workers/Driver)
         .config("spark.jars", jars_string)
         
@@ -38,5 +49,11 @@ def get_spark_session(app_name="Dagster_Spark_Job"):
         .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
         .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
         .getOrCreate())
+    
+    # طباعة معلومات الجلسة للتأكيد
+    print(f"✅ Spark Session created successfully!")
+    print(f"   Master: {spark.sparkContext.master}")
+    print(f"   App Name: {spark.sparkContext.appName}")
+    print(f"   Python Version (Driver): {spark.sparkContext.pythonVer}")
     
     return spark

@@ -15,6 +15,9 @@ WORKDIR /opt/dagster/app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 🧠 تحميل نموذج spaCy للغة الإنجليزية
+RUN python -m spacy download en_core_web_sm
+
 # تهيئة المجلدات والأكواد
 RUN mkdir -p /shared_jars
 COPY shared_jars/ /shared_jars/
