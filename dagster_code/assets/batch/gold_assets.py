@@ -60,11 +60,12 @@ def load_gold_data_warehouse(context):
 
     disease_names = [r["disease_name"] for r in silver_disease.collect()]
 
+    # ✅✅✅ الإصلاح الوحيد: disease_key ثابت يعتمد على disease_name فقط ✅✅✅
     dim_disease = (
         silver_disease
         .withColumn(
             "disease_key",
-            F.md5(F.concat_ws("_", F.col("disease_name"), F.current_timestamp().cast("string")))
+            F.md5(F.lower(F.trim(F.col("disease_name"))))  # ← ثابت لا يتغير مع الوقت
         )
         .withColumn("start_date", F.current_date())
         .withColumn("end_date", F.lit(None).cast(DateType()))
@@ -99,30 +100,28 @@ def load_gold_data_warehouse(context):
     )
 
     # ==========================================
-    # 7. ✅✅✅ WRITER الآمن - يستخدم collect() فقط ✅✅✅
+    # 7. WRITER الآمن - يستخدم collect() فقط
     # ==========================================
     def write_to_clickhouse(df, table_name):
         """كتابة آمنة بدون foreachPartition"""
         logger.info(f"📤 Collecting data for {table_name}...")
         
-        # ✅ نجمع كل البيانات كـ list of dicts إلى الـ Driver
         rows = df.collect()
         logger.info(f"📊 Collected {len(rows)} rows for {table_name}")
         
         if not rows:
             logger.warning(f"⚠️ No data to write to {table_name}")
-            return
+            return 0
         
-        # ✅ نحول الـ Rows إلى JSON strings
         json_lines = []
         for row in rows:
             row_dict = row.asDict()
             json_line = json.dumps(row_dict, default=str)
             json_lines.append(json_line)
         
-        # ✅ نرسل على دفعات
         BATCH_SIZE = 5000
         total = len(json_lines)
+        inserted = 0
         
         for i in range(0, total, BATCH_SIZE):
             batch = json_lines[i:i+BATCH_SIZE]
@@ -140,6 +139,7 @@ def load_gold_data_warehouse(context):
                 )
                 
                 if response.status_code == 200:
+                    inserted += len(batch)
                     logger.info(f"✅ Batch {batch_num}/{total_batches} done ({len(batch)} rows)")
                 else:
                     raise Exception(f"HTTP {response.status_code}: {response.text}")
@@ -148,7 +148,8 @@ def load_gold_data_warehouse(context):
                 logger.error(f"❌ Failed batch {batch_num}: {str(e)}")
                 raise
         
-        logger.info(f"✅ All {total} rows written to {table_name}")
+        logger.info(f"✅ All {inserted} rows written to {table_name}")
+        return inserted
 
     # ==========================================
     # 8. SCD2 EXPIRATION
@@ -184,13 +185,13 @@ def load_gold_data_warehouse(context):
         expire_old_diseases(disease_names)
 
         logger.info("Writing dim_location...")
-        write_to_clickhouse(dim_location, "dim_location")
+        loc_count = write_to_clickhouse(dim_location, "dim_location")
 
         logger.info("Writing dim_disease...")
-        write_to_clickhouse(dim_disease, "dim_disease")
+        dis_count = write_to_clickhouse(dim_disease, "dim_disease")
 
         logger.info("Writing fact_outbreaks...")
-        write_to_clickhouse(fact_outbreaks, "fact_outbreaks")
+        fact_count = write_to_clickhouse(fact_outbreaks, "fact_outbreaks")
 
     except Exception as e:
         logger.error(f"PIPELINE FAILED: {str(e)}")
@@ -202,10 +203,12 @@ def load_gold_data_warehouse(context):
     return Output(
         value="SUCCESS",
         metadata={
-            "dim_location": MetadataValue.int(dim_location.count()),
-            "dim_disease": MetadataValue.int(dim_disease.count()),
-            "fact_outbreaks": MetadataValue.int(fact_outbreaks.count()),
+            "dim_location_rows": MetadataValue.int(loc_count),
+            "dim_disease_rows": MetadataValue.int(dis_count),
+            "fact_outbreaks_rows": MetadataValue.int(fact_count),
+            "scd2": MetadataValue.text("enabled"),
+            "key_strategy": MetadataValue.text("MD5(disease_name) - STABLE"),
             "write_mode": MetadataValue.text("collect() - safe mode"),
-            "status": MetadataValue.text("FIXED")
+            "status": MetadataValue.text("PRODUCTION_READY")
         }
     )
