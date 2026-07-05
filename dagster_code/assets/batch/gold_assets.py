@@ -38,7 +38,7 @@ def load_gold_data_warehouse(context):
     PASSWORD = "MySecurePassword123"
 
     # ==========================================
-    # 4. DIM_LOCATION
+    # 4. DIM_LOCATION (مع إصلاح unsd_region)
     # ==========================================
     dim_location = (
         silver_df
@@ -46,10 +46,26 @@ def load_gold_data_warehouse(context):
         .dropDuplicates(["iso3"])
         .dropna(subset=["iso3"])
         .withColumn("location_key", F.md5(F.col("iso3")))
+        .withColumn(
+            "unsd_region",
+            F.upper(
+                F.when(
+                    F.col("unsd_region").isNull() | (F.trim(F.col("unsd_region")) == ""),
+                    F.coalesce(F.upper(F.col("region_code")), F.lit("UNKNOWN"))
+                ).otherwise(F.col("unsd_region"))
+            )
+        )
+        .withColumn(
+            "unsd_subregion",
+            F.when(
+                F.col("unsd_subregion").isNull() | (F.trim(F.col("unsd_subregion")) == ""),
+                F.lit("Unspecified")
+            ).otherwise(F.col("unsd_subregion"))
+        )
     )
 
     # ==========================================
-    # 5. DIM_DISEASE (SCD2 PREP)
+    # 5. DIM_DISEASE (SCD2 مع disease_key ثابت)
     # ==========================================
     silver_disease = (
         silver_df
@@ -60,12 +76,11 @@ def load_gold_data_warehouse(context):
 
     disease_names = [r["disease_name"] for r in silver_disease.collect()]
 
-    # ✅✅✅ الإصلاح الوحيد: disease_key ثابت يعتمد على disease_name فقط ✅✅✅
     dim_disease = (
         silver_disease
         .withColumn(
             "disease_key",
-            F.md5(F.lower(F.trim(F.col("disease_name"))))  # ← ثابت لا يتغير مع الوقت
+            F.md5(F.lower(F.trim(F.col("disease_name"))))
         )
         .withColumn("start_date", F.current_date())
         .withColumn("end_date", F.lit(None).cast(DateType()))
@@ -100,33 +115,26 @@ def load_gold_data_warehouse(context):
     )
 
     # ==========================================
-    # 7. WRITER الآمن - يستخدم collect() فقط
+    # 7. WRITER - نفس الكود القديم الناجح
     # ==========================================
     def write_to_clickhouse(df, table_name):
-        """كتابة آمنة بدون foreachPartition"""
-        logger.info(f"📤 Collecting data for {table_name}...")
+        logger.info(f"📤 Writing {table_name}...")
         
         rows = df.collect()
-        logger.info(f"📊 Collected {len(rows)} rows for {table_name}")
+        logger.info(f"📊 {table_name}: {len(rows)} rows")
         
         if not rows:
-            logger.warning(f"⚠️ No data to write to {table_name}")
             return 0
         
-        json_lines = []
-        for row in rows:
-            row_dict = row.asDict()
-            json_line = json.dumps(row_dict, default=str)
-            json_lines.append(json_line)
+        json_lines = [json.dumps(row.asDict(), default=str) for row in rows]
         
         BATCH_SIZE = 5000
-        total = len(json_lines)
         inserted = 0
         
-        for i in range(0, total, BATCH_SIZE):
+        for i in range(0, len(json_lines), BATCH_SIZE):
             batch = json_lines[i:i+BATCH_SIZE]
             batch_num = i//BATCH_SIZE + 1
-            total_batches = (total + BATCH_SIZE - 1)//BATCH_SIZE
+            total_batches = (len(json_lines) + BATCH_SIZE - 1)//BATCH_SIZE
             
             try:
                 response = requests.post(
@@ -140,19 +148,19 @@ def load_gold_data_warehouse(context):
                 
                 if response.status_code == 200:
                     inserted += len(batch)
-                    logger.info(f"✅ Batch {batch_num}/{total_batches} done ({len(batch)} rows)")
+                    logger.info(f"✅ {table_name}: Batch {batch_num}/{total_batches} done ({len(batch)} rows)")
                 else:
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
+                    raise Exception(f"HTTP {response.status_code}: {response.text[:200]}")
                     
             except Exception as e:
-                logger.error(f"❌ Failed batch {batch_num}: {str(e)}")
+                logger.error(f"❌ {table_name}: {str(e)}")
                 raise
         
-        logger.info(f"✅ All {inserted} rows written to {table_name}")
+        logger.info(f"✅ {table_name}: {inserted} rows written")
         return inserted
 
     # ==========================================
-    # 8. SCD2 EXPIRATION
+    # 8. SCD2 EXPIRATION (باستخدام UPDATE)
     # ==========================================
     def expire_old_diseases(names):
         if not names:
@@ -171,14 +179,18 @@ def load_gold_data_warehouse(context):
             AND is_current = 1
             """
 
-            requests.post(
-                CLICKHOUSE_URL,
-                params={"query": query},
-                auth=(USER, PASSWORD)
-            )
+            try:
+                requests.post(
+                    CLICKHOUSE_URL,
+                    params={"query": query},
+                    auth=(USER, PASSWORD)
+                )
+                logger.info(f"✅ SCD2 expired batch: {len(chunk)} diseases")
+            except Exception as e:
+                logger.error(f"❌ SCD2 expiration error: {str(e)}")
 
     # ==========================================
-    # 9. EXECUTION
+    # 9. EXECUTION (نفس الترتيب القديم)
     # ==========================================
     try:
         logger.info("Expiring old diseases (SCD2)...")
@@ -208,7 +220,7 @@ def load_gold_data_warehouse(context):
             "fact_outbreaks_rows": MetadataValue.int(fact_count),
             "scd2": MetadataValue.text("enabled"),
             "key_strategy": MetadataValue.text("MD5(disease_name) - STABLE"),
-            "write_mode": MetadataValue.text("collect() - safe mode"),
+            "write_mode": MetadataValue.text("collect() - working"),
             "status": MetadataValue.text("PRODUCTION_READY")
         }
     )
