@@ -53,5 +53,8 @@ CREATE TABLE IF NOT EXISTS data_warehouse_db.fact_outbreak_alerts
     source String,
     url String
 )
-ENGINE = MergeTree()
-ORDER BY (published_at, disease_key, location_key);
+-- نستخدم ingestion_time كنسخة (Version) 
+-- إذا وصل خبر مكرر، سيحتفظ ClickHouse بالنسخة الأحدث بناءً على وقت الإدخال
+ENGINE = ReplacingMergeTree(ingestion_time)
+-- تمت إضافة الـ url لضمان أن التكرار يُحسب فقط لنفس الخبر الفعلي
+ORDER BY (disease_key, location_key, published_at, url);
