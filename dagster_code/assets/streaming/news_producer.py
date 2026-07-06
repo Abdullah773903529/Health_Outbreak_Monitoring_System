@@ -20,24 +20,199 @@ KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "outbreak_alerts")
 REQUEST_TIMEOUT = 20
 
 # ==========================================
-# 2. الكلمات المفتاحية للفلترة
+# 2. الكلمات المفتاحية الموسعة للفلترة
 # ==========================================
 INFECTIOUS_DISEASES = [
-    "cholera", "ebola", "covid", "covid-19", "influenza", "flu", "bird flu", 
-    "avian influenza", "west nile", "h5n1", "measles", "mpox", "monkeypox", 
-    "malaria", "dengue", "polio", "zika", "tuberculosis", "virus", "infection", 
-    "bacterial outbreak", "screwworm"
+    # أمراض وبائية شديدة (Pandemic Potential)
+    "ebola", "ebola virus", "marburg", "marburg virus", "lassa fever", "lassa",
+    "crimean-congo", "cchf", "rift valley fever", "rift valley",
+    "nipah", "nipah virus", "hendra", "hendra virus",
+    "sars", "mers", "covid-19", "covid", "coronavirus", "sars-cov-2",
+    
+    # إنفلونزا الطيور والخنازير
+    "avian influenza", "bird flu", "avian flu",
+    "h5n1", "h5n6", "h5n8", "h7n9", "h7n7", "h9n2", "h10n3",
+    "swine flu", "h1n1", "h3n2", "pandemic flu", "pandemic influenza",
+    
+    # أمراض بكتيرية خطيرة
+    "cholera", "plague", "bubonic plague", "pneumonic plague",
+    "anthrax", "typhoid", "typhoid fever", "typhus",
+    "diphtheria", "tetanus", "botulism",
+    "meningitis", "meningococcal", "leptospirosis",
+    "shigellosis", "shigella", "legionnaires", "legionella",
+    
+    # أمراض فيروسية خطيرة
+    "measles", "rubeola", "monkeypox", "mpox", "orthopoxvirus",
+    "polio", "poliomyelitis", "rabies", "lyssavirus",
+    "dengue", "dengue fever", "dengue hemorrhagic",
+    "yellow fever", "west nile", "west nile virus",
+    "zika", "zika virus", "chikungunya",
+    
+    # أمراض متوسطة
+    "malaria", "plasmodium", "tuberculosis", "tb",
+    "hiv", "aids", "influenza", "flu", "seasonal flu",
+    "norovirus", "norwalk virus", "rotavirus",
+    "salmonella", "salmonellosis", "listeria", "listeriosis",
+    "hepatitis a", "hepatitis e", "hepatitis outbreak",
+    "pertussis", "whooping cough", "scarlet fever",
+    "e. coli", "escherichia coli", "cryptosporidium", "cryptosporidiosis",
+    
+    # أمراض ناشئة ومهملة
+    "hmpv", "human metapneumovirus", "rsv", "respiratory syncytial virus",
+    "adenovirus", "enterovirus", "rhinovirus",
+    "mrsa", "candida auris", "c. auris",
+    "oropouche", "oropouche virus", "oropouche fever",
+    "leishmaniasis", "kala-azar", "dracunculiasis", "guinea worm",
+    "chapare", "chapare virus", "sudan virus",
+    
+    # مصطلحات عامة للتفشي
+    "virus", "infection", "infectious disease", "viral disease",
+    "bacterial infection", "bacterial outbreak", "fungal infection",
+    "parasitic disease", "zoonotic disease", "zoonotic virus",
+    "vector-borne disease", "waterborne disease", "foodborne illness",
+    "screwworm", "new world screwworm",
+    
+    # أمراض إضافية
+    "chagas", "chagas disease", "trypanosomiasis", "sleeping sickness",
+    "onchocerciasis", "river blindness", "schistosomiasis", "bilharzia",
+    "lymphatic filariasis", "elephantiasis", "trachoma",
+    "buruli ulcer", "yaws", "leprosy", "hansen's disease",
+    "melioidosis", "glanders", "brucellosis", "brucella",
+    "q fever", "typhus", "scrub typhus", "murine typhus",
+    "toxoplasmosis", "toxoplasma", "trichinellosis", "trichinella",
+    "echinococcosis", "hydatid disease", "cysticercosis",
+    "mycetoma", "chromoblastomycosis", "sporotrichosis",
+    "histoplasmosis", "coccidioidomycosis", "valley fever",
+    "aspergillosis", "mucormycosis", "black fungus",
+    "cryptococcosis", "candida infection",
+    
+    # مصطلحات للأمراض غير المعروفة
+    "disease x", "unknown virus", "unknown pathogen",
+    "mystery illness", "mysterious disease", "mysterious illness",
+    "undiagnosed disease", "unidentified virus", "unidentified illness",
+    "novel virus", "novel pathogen", "new virus", "new pathogen",
+    "new strain", "new variant", "mutated virus", "mutated strain",
+    "recombinant virus", "hybrid virus",
+    "cross-species transmission", "animal-to-human transmission",
+    "spillover", "spillover event"
 ]
+
 OUTBREAK_CONTEXTS = [
-    "outbreak", "epidemic", "pandemic", "first case", "confirmed case", 
-    "confirmed cases", "new cases", "surge", "cluster", "detected", 
-    "health alert", "emergency", "spread", "transmission", "infected"
+    # مصطلحات التفشي الأساسية
+    "outbreak", "epidemic", "pandemic", "endemic",
+    "cluster of cases", "disease cluster",
+    "surge", "surge in cases", "spike in cases",
+    "rise in cases", "increase in cases", "growing number",
+    "sharp increase", "dramatic increase", "alarming increase",
+    "sudden increase", "rapid increase",
+    
+    # مصطلحات الحالات
+    "first case", "first confirmed case", "index case", "patient zero",
+    "confirmed case", "confirmed cases", "suspected case", "suspected cases",
+    "probable case", "probable cases", "new case", "new cases",
+    "additional cases", "more cases", "reported cases",
+    "case count", "case tally", "death toll", "fatalities",
+    "positive case", "positive cases", "tested positive",
+    "case fatality", "mortality rate",
+    
+    # مصطلحات الكشف والتشخيص
+    "detected", "identified", "discovered", "found",
+    "diagnosed", "diagnosis", "laboratory confirmed",
+    "tested positive for", "samples tested", "screening",
+    "surveillance", "active surveillance", "passive surveillance",
+    "contact tracing", "contact investigation",
+    "genomic sequencing", "genome sequencing",
+    
+    # مصطلحات الانتشار
+    "spread", "spreading", "rapid spread", "widespread",
+    "transmission", "community transmission", "local transmission",
+    "human-to-human", "person-to-person", "airborne transmission",
+    "droplet transmission", "aerosol transmission",
+    "vector-borne", "mosquito-borne", "tick-borne",
+    "waterborne", "foodborne", "bloodborne",
+    "contagious", "highly contagious", "infectious", "communicable",
+    "superspreader", "superspreading event",
+    
+    # مصطلحات الاستجابة والطوارئ
+    "health alert", "health warning", "health advisory",
+    "public health emergency", "public health emergency of international concern",
+    "pheic", "global health emergency",
+    "emergency response", "emergency committee",
+    "emergency use authorization", "emergency use listing",
+    "lockdown", "quarantine", "isolation", "containment",
+    "travel restriction", "travel advisory", "travel warning",
+    "border closure", "screening measures",
+    
+    # مصطلحات الإبلاغ
+    "WHO", "World Health Organization", "CDC", "Centers for Disease Control",
+    "ECDC", "health ministry", "ministry of health",
+    "reported by", "confirmed by", "announced by",
+    "according to", "statement from", "press release",
+    "situation report", "disease outbreak news",
+    
+    # مصطلحات إضافية
+    "hospitalized", "hospitalization", "intensive care",
+    "isolation ward", "treatment center", "field hospital",
+    "vaccination campaign", "vaccination drive", "immunization",
+    "containment measures", "control measures", "prevention measures",
+    "public health measures", "health protocols",
+    "disease surveillance", "early warning", "rapid response",
+    "hotspot", "red zone", "high risk area",
+    "epicenter", "ground zero",
+    
+    # مصطلحات للحيوانات
+    "culling", "animal reservoir", "intermediate host",
+    "wet market", "live animal market",
+    "livestock", "poultry", "wildlife"
 ]
+
 EXCLUDED_KEYWORDS = [
-    "celebrity", "concert", "movie", "music", "sleep", "diet", "fitness", 
-    "relationship", "pet", "recipe", "weight loss", "body type", "aging", 
-    "wellness", "cancer", "diabetes", "heart disease", "cyber", "computer virus", 
-    "software", "hacker", "malware", "mental health", "clinical trial"
+    # ترفيه ومشاهير
+    "celebrity", "concert", "movie", "film", "music", "song", "album",
+    "tv show", "television", "netflix", "hollywood", "bollywood",
+    "actor", "actress", "singer", "musician", "artist",
+    "award", "oscar", "grammy", "red carpet",
+    
+    # رياضة
+    "sports", "football", "soccer", "basketball", "baseball",
+    "tennis", "golf", "olympics", "world cup", "championship",
+    "player", "athlete", "coach", "team", "match", "tournament",
+    
+    # تكنولوجيا وأعمال
+    "cryptocurrency", "bitcoin", "ethereum", "blockchain", "nft",
+    "stock market", "wall street", "investment", "startup",
+    "software", "app", "application", "update", "upgrade",
+    "computer virus", "malware", "ransomware", "hacker", "cyber attack",
+    "data breach", "phishing", "spam", "ddos",
+    
+    # صحة غير معدية
+    "cancer", "diabetes", "heart disease", "heart attack", "stroke",
+    "alzheimer", "dementia", "parkinson", "arthritis",
+    "obesity", "overweight", "weight loss", "diet", "nutrition",
+    "mental health", "depression", "anxiety", "stress", "therapy",
+    "wellness", "meditation", "yoga", "mindfulness",
+    "cosmetic", "plastic surgery", "botox",
+    
+    # موضة وأسلوب حياة
+    "fashion", "style", "beauty", "makeup", "skincare",
+    "celebrity style", "outfit", "clothing", "accessories",
+    "recipe", "cooking", "food", "restaurant", "cuisine",
+    "travel", "vacation", "hotel", "resort", "destination",
+    "home decor", "interior design", "diy",
+    
+    # حيوانات أليفة وعلاقات
+    "pet", "dog", "cat", "puppy", "kitten", "pet care",
+    "relationship", "dating", "marriage", "divorce", "wedding",
+    "parenting", "pregnancy", "baby", "childbirth",
+    
+    # غير ذلك
+    "sleep", "insomnia", "fitness", "exercise", "workout",
+    "body type", "body shape", "aging", "anti-aging",
+    "clinical trial", "drug trial", "pharmaceutical stock",
+    "real estate", "mortgage", "insurance",
+    "politics", "election", "vote", "campaign",
+    "weather", "climate", "hurricane", "earthquake",
+    "war", "conflict", "military", "weapon"
 ]
 
 # ==========================================
