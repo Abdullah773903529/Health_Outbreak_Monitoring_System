@@ -101,56 +101,9 @@ The architecture follows the **Medallion Architecture Pattern (Bronze, Silver, G
 
 # Architecture Diagram
 
-```mermaid
-graph LR
+The following diagram illustrates the complete end-to-end architecture of the Health Outbreak Monitoring System.
 
-    subgraph Sources
-        CSV[CSV Files]
-        NewsAPI[NewsAPI REST]
-    end
-
-    subgraph Data_Lake_Streaming
-        MinIO[(MinIO Object Storage)]
-        Kafka[Apache Kafka]
-    end
-
-    subgraph Orchestration
-        Dagster{Dagster}
-    end
-
-    subgraph Processing
-        SparkBatch[Spark Batch]
-        SparkStream[Spark Streaming]
-    end
-
-    subgraph Warehouse
-        Bronze[(Bronze Parquet)]
-        Silver[(Silver Parquet)]
-        ClickHouse[(ClickHouse)]
-    end
-
-    subgraph BI
-        Metabase[Metabase Dashboard]
-    end
-
-
-    CSV --> MinIO
-
-    NewsAPI -->|Python Producer| Kafka
-
-    MinIO -->|Dagster Trigger| SparkBatch
-
-    SparkBatch --> Bronze
-    Bronze --> Silver
-    Silver -->|SCD2 Transformation| ClickHouse
-
-    Kafka -->|Structured Streaming| SparkStream
-    SparkStream -->|NLP Extraction| ClickHouse
-
-    ClickHouse --> Metabase
-
-    Dagster -.-> SparkBatch
-```
+![System Architecture](docs/architecture.png)
 # Project Structure
 
 ```text
