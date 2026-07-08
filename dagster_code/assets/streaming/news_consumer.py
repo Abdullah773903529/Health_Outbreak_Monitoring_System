@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 # ========================
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:29092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "outbreak_alerts")
-CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "clickhouse")
-CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "abdullah_developer")
-CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "MySecurePassword123")
+CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST")
+CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER")
+CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD")
 DB_NAME = "data_warehouse_db"
 
 # ========================
@@ -47,26 +47,25 @@ schema = StructType([
 ])
 
 # ========================
-# 🧠 NLP Disease & Country Extractor
+#  NLP Disease & Country Extractor
 # ========================
 class DiseaseCountryExtractor:
     """مستخرج الأمراض والدول باستخدام spaCy NLP"""
     
     def __init__(self):
-        logger.info("🧠 Loading spaCy NLP model...")
+        logger.info(" Loading spaCy NLP model...")
         try:
             self.nlp = spacy.load("en_core_web_sm")
         except OSError:
-            logger.warning("⚠️ spaCy model not found. Downloading...")
+            logger.warning(" spaCy model not found. Downloading...")
             import subprocess
             subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
             self.nlp = spacy.load("en_core_web_sm")
         
         self._add_custom_patterns()
-        logger.info("✅ NLP model loaded successfully")
+        logger.info(" NLP model loaded successfully")
     
     def _add_custom_patterns(self):
-        """إضافة أنماط الأمراض والدول إلى spaCy"""
         if "entity_ruler" in self.nlp.pipe_names:
             self.nlp.remove_pipe("entity_ruler")
         
@@ -83,7 +82,7 @@ class DiseaseCountryExtractor:
         # البحث المباشر
         for disease in DISEASE_KEYWORDS:
             if disease in text_lower:
-                logger.info(f"✅ Disease found (direct): {disease}")
+                logger.info(f" Disease found (direct): {disease}")
                 return self._normalize_disease(disease)
         
         # استخدام spaCy
@@ -91,7 +90,7 @@ class DiseaseCountryExtractor:
         diseases = [ent.text for ent in doc.ents if ent.label_ == "DISEASE"]
         
         if diseases:
-            logger.info(f"✅ Disease found (spaCy): {diseases[0]}")
+            logger.info(f" Disease found (spaCy): {diseases[0]}")
             return self._normalize_disease(diseases[0])
         
         return None
@@ -106,7 +105,7 @@ class DiseaseCountryExtractor:
         # البحث المباشر
         for country in COUNTRY_KEYWORDS:
             if country in text_lower:
-                logger.info(f"✅ Country found (direct): {country}")
+                logger.info(f" Country found (direct): {country}")
                 return self._normalize_country(country)
         
         # استخدام spaCy
@@ -114,7 +113,7 @@ class DiseaseCountryExtractor:
         countries = [ent.text for ent in doc.ents if ent.label_ == "COUNTRY"]
         
         if countries:
-            logger.info(f"✅ Country found (spaCy): {countries[0]}")
+            logger.info(f" Country found (spaCy): {countries[0]}")
             return self._normalize_country(countries[0])
         
         # محاولة GPE
@@ -123,7 +122,7 @@ class DiseaseCountryExtractor:
             for gpe in gpes:
                 normalized = self._normalize_country(gpe)
                 if normalized:
-                    logger.info(f"✅ Country found (GPE): {gpe} -> {normalized}")
+                    logger.info(f" Country found (GPE): {gpe} -> {normalized}")
                     return normalized
         
         return None
@@ -185,17 +184,17 @@ def load_caches(client):
     if not disease_cache:
         res = client.execute("SELECT disease_name, disease_key FROM dim_disease WHERE is_current = 1")
         disease_cache = {normalize(r[0]): r[1] for r in res}
-        logger.info(f"✅ Loaded {len(disease_cache)} diseases")
+        logger.info(f" Loaded {len(disease_cache)} diseases")
     if not location_cache:
         res = client.execute("SELECT country, location_key FROM dim_location")
         location_cache = {normalize(r[0]): r[1] for r in res}
-        logger.info(f"✅ Loaded {len(location_cache)} locations")
+        logger.info(f" Loaded {len(location_cache)} locations")
 
 def write_to_clickhouse(batch_df, batch_id):
-    logger.info(f"🔥 Batch {batch_id} started")
+    logger.info(f" Batch {batch_id} started")
     unique_df = batch_df.dropDuplicates(["title", "source"])
     rows = unique_df.collect()
-    logger.info(f"📦 Batch {batch_id} unique rows: {len(rows)}")
+    logger.info(f" Batch {batch_id} unique rows: {len(rows)}")
     if not rows:
         return
     
@@ -222,7 +221,7 @@ def write_to_clickhouse(batch_df, batch_id):
         
         if not disease_key or not location_key:
             stats["no_keys"] += 1
-            logger.warning(f"⚠️ Key not found - Disease: {disease_name}, Country: {country_name}")
+            logger.warning(f" Key not found - Disease: {disease_name}, Country: {country_name}")
             continue
         
         data.append((
@@ -238,14 +237,14 @@ def write_to_clickhouse(batch_df, batch_id):
             VALUES
         """, data)
         stats["inserted"] = len(data)
-        logger.info(f"✅ Batch {batch_id}: inserted {len(data)} rows")
+        logger.info(f" Batch {batch_id}: inserted {len(data)} rows")
     else:
-        logger.warning(f"⚠️ Batch {batch_id}: no valid rows")
+        logger.warning(f" Batch {batch_id}: no valid rows")
     
-    logger.info(f"📊 Stats: total={stats['total']}, no_disease={stats['no_disease']}, no_country={stats['no_country']}, no_keys={stats['no_keys']}, inserted={stats['inserted']}")
+    logger.info(f" Stats: total={stats['total']}, no_disease={stats['no_disease']}, no_country={stats['no_country']}, no_keys={stats['no_keys']}, inserted={stats['inserted']}")
 
 def main():
-    logger.info("🚀 Starting Spark Outbreak Consumer")
+    logger.info(" Starting Spark Outbreak Consumer")
     
     spark = (SparkSession.builder.appName("OutbreakStreaming-NLP")
         .config("spark.jars",

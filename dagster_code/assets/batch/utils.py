@@ -7,7 +7,7 @@ def get_spark_session(app_name="Dagster_Spark_Job"):
     
     # تعريف المسارات الموحدة للملفات الجديدة (تم استبدال درايفر Postgres بدرايفر ClickHouse الجديد)
     JARS = [
-        "/shared_jars/clickhouse-jdbc-0.6.4-all.jar", # البطل الجديد هنا 🚀
+        "/shared_jars/clickhouse-jdbc-0.6.4-all.jar", # البطل الجديد هنا 
         "/shared_jars/hadoop-aws-3.3.4.jar",
         "/shared_jars/aws-java-sdk-bundle-1.12.262.jar"
     ]
@@ -21,7 +21,7 @@ def get_spark_session(app_name="Dagster_Spark_Job"):
         .config("spark.executor.memory", "2g")
         .config("spark.executor.cores", "2")
         
-        # ✅ حل مشكلة Python Version Mismatch بين Driver و Worker
+        #  حل مشكلة Python Version Mismatch بين Driver و Worker
         # Driver (Dagster) يستخدم Python 3.10
         .config("spark.pyspark.driver.python", "/usr/local/bin/python3.10")
         # Worker قد يستخدم Python 3.7 أو 3.8 - نجرب المسارات المتاحة
@@ -51,7 +51,7 @@ def get_spark_session(app_name="Dagster_Spark_Job"):
         .getOrCreate())
     
     # طباعة معلومات الجلسة للتأكيد
-    print(f"✅ Spark Session created successfully!")
+    print(f" Spark Session created successfully!")
     print(f"   Master: {spark.sparkContext.master}")
     print(f"   App Name: {spark.sparkContext.appName}")
     print(f"   Python Version (Driver): {spark.sparkContext.pythonVer}")

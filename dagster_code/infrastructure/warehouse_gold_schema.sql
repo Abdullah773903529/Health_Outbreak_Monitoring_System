@@ -1,24 +1,22 @@
--- 1. جدول الأبعاد (معدل: يدعم ReplacingMergeTree لمنع التكرار التلقائي)
 CREATE TABLE IF NOT EXISTS data_warehouse_db.dim_location
 (
     location_key String,
     iso3 FixedString(3),
     country String,
-    region_code Nullable(String),
-    unsd_region Nullable(String),
-    unsd_subregion Nullable(String)
+    region_code(String),
+    unsd_region (String),
+    unsd_subregion (String)
 )
 ENGINE = ReplacingMergeTree()
 ORDER BY location_key;
 
--- 2. جدول الأمراض (معدل: يدعم String للـ Key ليتوافق مع MD5، ويدعم SCD2)
 CREATE TABLE IF NOT EXISTS data_warehouse_db.dim_disease
 (
     disease_key String,
     disease_name String,
-    definition Nullable(String),
-    icd10_general Nullable(String),
-    icd104_specific Nullable(String),
+    definition (String),
+    icd10_general (String),
+    icd104_specific (String),
     start_date Date,
     end_date Nullable(Date),
     is_current UInt8
@@ -26,7 +24,6 @@ CREATE TABLE IF NOT EXISTS data_warehouse_db.dim_disease
 ENGINE = MergeTree()
 ORDER BY disease_key;
 
--- 3. جدول الحقائق التاريخية (معدل: disease_key أصبح String)
 CREATE TABLE IF NOT EXISTS data_warehouse_db.fact_outbreaks
 (
     outbreak_id String,
@@ -41,7 +38,6 @@ ENGINE = MergeTree()
 PARTITION BY report_year
 ORDER BY (report_year, disease_key, location_key, outbreak_id, don_id);
 
--- 4. جدول الحقائق اللحظية (معدل: disease_key أصبح String)
 CREATE TABLE IF NOT EXISTS data_warehouse_db.fact_outbreak_alerts
 (
     alert_id UUID,
@@ -53,8 +49,6 @@ CREATE TABLE IF NOT EXISTS data_warehouse_db.fact_outbreak_alerts
     source String,
     url String
 )
--- نستخدم ingestion_time كنسخة (Version) 
--- إذا وصل خبر مكرر، سيحتفظ ClickHouse بالنسخة الأحدث بناءً على وقت الإدخال
+
 ENGINE = ReplacingMergeTree(ingestion_time)
--- تمت إضافة الـ url لضمان أن التكرار يُحسب فقط لنفس الخبر الفعلي
 ORDER BY (disease_key, location_key, published_at, url);

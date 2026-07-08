@@ -9,9 +9,9 @@ from .utils import get_spark_session
 )
 def silver_cleaned_outbreaks():
     """
-    الطبقة الفضية (Silver Layer):
-    تنظيف البيانات الخام - حذف أي صف يحتوي على قيمة فارغة في أي عمود.
-    لا يتم تعبئة أي قيم افتراضية - إما البيانات كاملة أو تحذف.
+    Asset: Silver Layer - Cleaned Outbreak Data
+    This asset reads the bronze layer outbreak data, performs extensive cleaning and transformation,
+    and writes the cleaned data to the silver layer in Parquet format. The cleaning steps include:
     """
     spark = get_spark_session("SilverCleaningJob")
     logger = get_dagster_logger()
@@ -24,25 +24,23 @@ def silver_cleaned_outbreaks():
     # ==========================================
     df = spark.read.parquet(INPUT_PATH)
     initial_count = df.count()
-    logger.info(f"📥 Bronze loaded: {initial_count} rows")
+    logger.info(f" Bronze loaded: {initial_count} rows")
 
     # ==========================================
-    # 2. ✅ حذف أي صف به قيمة فارغة في أي عمود
+    # 2.  حذف أي صف به قيمة فارغة في أي عمود
     # ==========================================
     
-    # ✅ جميع الأعمدة - أي صف به NULL في أي عمود سيتم حذفه
     all_columns = df.columns
-    logger.info(f"📊 Columns: {all_columns}")
+    logger.info(f" Columns: {all_columns}")
     
-    # ✅ حذف جميع الصفوف التي تحتوي على NULL في أي عمود
-    df_cleaned = df.na.drop()  # ← هذا يحذف أي صف به NULL في أي عمود
+    df_cleaned = df.na.drop() # inplace drop of any row with NULL in any column
     
     after_null_drop = df_cleaned.count()
     null_dropped = initial_count - after_null_drop
-    logger.info(f"🧹 Dropped {null_dropped} rows with NULL values")
+    logger.info(f" Dropped {null_dropped} rows with NULL values")
     
     # ==========================================
-    # 3. ✅ حذف السلاسل النصية الفارغة
+    #  3.  حذف أي صف به قيمة فارغة (empty string) في أي عمود
     # ==========================================
     for col_name in all_columns:
         if col_name in df_cleaned.columns:
@@ -52,33 +50,30 @@ def silver_cleaned_outbreaks():
     
     after_empty_drop = df_cleaned.count()
     empty_dropped = after_null_drop - after_empty_drop
-    logger.info(f"🧹 Dropped {empty_dropped} rows with empty strings")
+    logger.info(f" Dropped {empty_dropped} rows with empty strings")
 
-    # ==========================================
-    # 4. ✅ إزالة التكرارات
+    # 4.  إزالة التكرارات
     # ==========================================
     if 'outbreak_id' in df_cleaned.columns:
         df_cleaned = df_cleaned.dropDuplicates(['outbreak_id'])
     
     after_dup_drop = df_cleaned.count()
     dup_dropped = after_empty_drop - after_dup_drop
-    logger.info(f"🧹 Dropped {dup_dropped} duplicate rows")
+    logger.info(f" Dropped {dup_dropped} duplicate rows")
 
-    # ==========================================
-    # 5. ✅ فلترة السنة (> 1996 بدون حد أعلى)
+    # 5.  فلترة السنة (> 1996 بدون حد أعلى)
     # ==========================================
     if 'year' in df_cleaned.columns:
         df_cleaned = df_cleaned.filter(F.col('year') >= 1996)
     
     after_year_drop = df_cleaned.count()
     year_dropped = after_dup_drop - after_year_drop
-    logger.info(f"🧹 Dropped {year_dropped} rows with year < 1996")
+    logger.info(f" Dropped {year_dropped} rows with year < 1996")
 
-    # ==========================================
-    # 6. ✅ توحيد النصوص (بدون تعبئة قيم افتراضية)
+    # 6.  توحيد النصوص (بدون تعبئة قيم افتراضية)
     # ==========================================
     
-    # ✅ أعمدة تحول لأحرف كبيرة مع إزالة الفراغات
+    #  أعمدة تحول لأحرف كبيرة مع إزالة الفراغات
     upper_trim_cols = [
         "disease_name", "country", "iso3", "icd10_general",
         "who_region", "unsd_region", "unsd_subregion"
@@ -87,14 +82,13 @@ def silver_cleaned_outbreaks():
         if col_name in df_cleaned.columns:
             df_cleaned = df_cleaned.withColumn(col_name, F.trim(F.upper(F.col(col_name))))
     
-    # ✅ أعمدة إزالة الفراغات فقط
+    #  أعمدة إزالة الفراغات فقط
     trim_only_cols = ["definition", "don_id", "icd104_specific", "outbreak_id"]
     for col_name in trim_only_cols:
         if col_name in df_cleaned.columns:
             df_cleaned = df_cleaned.withColumn(col_name, F.trim(F.col(col_name)))
 
-    # ==========================================
-    # 7. ✅ تصحيح أخطاء الترميز في أسماء الدول
+    # 7.  تصحيح أخطاء الترميز في أسماء الدول
     # ==========================================
     if 'country' in df_cleaned.columns:
         df_cleaned = df_cleaned.withColumn(
@@ -106,8 +100,8 @@ def silver_cleaned_outbreaks():
              .otherwise(F.col("country"))
         )
 
-    # ==========================================
-    # 8. ✅ تعبئة الأقاليم الجغرافية المفقودة (لأنها أعمدة مهمة للـ Gold)
+    
+    # 8. تعبئة الأقاليم الجغرافية المفقودة (لأنها أعمدة مهمة للـ Gold)
     # ==========================================
     if 'country' in df_cleaned.columns and 'who_region' in df_cleaned.columns:
         americas_countries = [
@@ -140,20 +134,18 @@ def silver_cleaned_outbreaks():
              .otherwise(F.col("who_region"))
         )
 
-    # ==========================================
-    # 9. ✅ إعادة تسمية who_region إلى region_code
+    # 9.  إعادة تسمية who_region إلى region_code
     # ==========================================
     if 'who_region' in df_cleaned.columns:
         df_cleaned = df_cleaned.withColumnRenamed('who_region', 'region_code')
 
-    # ==========================================
-    # 10. ✅ إضافة أعمدة مساعدة (مشتقة من البيانات الموجودة)
+    
+    # 10.  إضافة أعمدة مساعدة (مشتقة من البيانات الموجودة)
     # ==========================================
     df_cleaned = df_cleaned.withColumn('cleaning_timestamp', F.current_timestamp())
     df_cleaned = df_cleaned.withColumn('outbreak_count', F.lit(1))
 
-    # ==========================================
-    # 11. ✅ فحص نهائي: التأكد من عدم وجود أي قيمة فارغة
+    # 11.  فحص نهائي: التأكد من عدم وجود أي قيمة فارغة
     # ==========================================
     final_count = df_cleaned.count()
     total_remaining_nulls = 0
@@ -163,7 +155,7 @@ def silver_cleaned_outbreaks():
             F.col(col_name).isNull() | (F.trim(F.col(col_name)) == "")
         ).count()
         if null_count > 0:
-            logger.warning(f"⚠️ {col_name}: {null_count} NULL/empty values found - removing...")
+            logger.warning(f" {col_name}: {null_count} NULL/empty values found - removing...")
             df_cleaned = df_cleaned.filter(
                 F.col(col_name).isNotNull() & (F.trim(F.col(col_name)) != "")
             )
@@ -171,11 +163,11 @@ def silver_cleaned_outbreaks():
     
     if total_remaining_nulls > 0:
         final_count = df_cleaned.count()
-        logger.info(f"🧹 Final cleanup: removed {total_remaining_nulls} more rows")
+        logger.info(f" Final cleanup: removed {total_remaining_nulls} more rows")
 
     total_dropped = initial_count - final_count
 
-    # ==========================================
+   
     # 12. كتابة البيانات
     # ==========================================
     (df_cleaned.write
@@ -183,9 +175,8 @@ def silver_cleaned_outbreaks():
      .partitionBy('year')
      .parquet(OUTPUT_PATH))
 
-    logger.info(f"✅ Silver: {initial_count} → {final_count} rows (dropped {total_dropped})")
+    logger.info(f" Silver: {initial_count} → {final_count} rows (dropped {total_dropped})")
 
-    # ==========================================
     # 13. المقاييس
     # ==========================================
     return Output(

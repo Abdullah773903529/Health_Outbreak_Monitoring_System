@@ -248,7 +248,6 @@ def is_relevant_outbreak(article: dict) -> bool:
     return has_disease and has_outbreak_context
 
 def fetch_news_with_retry(max_retries=3, backoff_factor=2) -> dict:
-    """جلب الأخبار من NewsAPI لنطاق زمني يشمل الأمس واليوم لضمان عدم ضياع البيانات"""
     # حساب تواريخ الأمس واليوم
     today_date = datetime.now(timezone.utc).date()
     yesterday_date = today_date - timedelta(days=1)
@@ -273,15 +272,14 @@ def fetch_news_with_retry(max_retries=3, backoff_factor=2) -> dict:
                 return response.json()
         except requests.exceptions.RequestException as e:
             retries += 1
-            logger.warning(f"⚠️ المحاولة {retries} فشلت. إعادة المحاولة خلال {delay} ثوانٍ...")
+            logger.warning(f" المحاولة {retries} فشلت. إعادة المحاولة خلال {delay} ثوانٍ...")
             if retries == max_retries:
-                logger.error("❌ تم استنفاد المحاولات للاتصال بـ API.")
+                logger.error(" تم استنفاد المحاولات للاتصال بـ API.")
                 raise e
             time.sleep(delay)
             delay *= backoff_factor
 
 def process_and_send_articles(articles: list) -> int:
-    """فلترة المقالات وإرسال المطابق منها إلى كافكا"""
     sent_count = 0
     for article in articles:
         title = (article.get("title") or "").strip()
@@ -326,25 +324,24 @@ def process_and_send_articles(articles: list) -> int:
 # ==========================================
 @asset(group_name="streaming", compute_kind="python")
 def fetch_and_produce_outbreak_news():
-    """جلب التنبيهات والأخبار الطبية من API وإرسالها إلى كافكا"""
-    logger.info("🚀 بدء تشغيل الـ News Outbreak Producer...")
+    logger.info(" بدء تشغيل الـ News Outbreak Producer...")
     try:
         data = fetch_news_with_retry()
         if data.get("status") != "ok":
-            logger.error(f"❌ فشل الـ API في جلب البيانات: {data}")
+            logger.error(f" فشل الـ API في جلب البيانات: {data}")
             return
             
         articles = data.get("articles", [])
         
         # سجل يوضح العدد الإجمالي الذي تم استلامه من API قبل تطبيق الفلترة
-        logger.info(f"📥 تم استلام {len(articles)} مقال من NewsAPI (نطاق الأمس واليوم). جاري الفلترة...")
+        logger.info(f" تم استلام {len(articles)} مقال من NewsAPI (نطاق الأمس واليوم). جاري الفلترة...")
         
         total_sent = process_and_send_articles(articles)
         
-        logger.info(f"🏁 تم الانتهاء من المعالجة. الأخبار التي تجاوزت الفلتر وأُرسلت بنجاح: {total_sent}")
+        logger.info(f" تم الانتهاء من المعالجة. الأخبار التي تجاوزت الفلتر وأُرسلت بنجاح: {total_sent}")
         
     except Exception as e:
-        logger.critical(f"💥 خطأ غير متوقع أثناء تشغيل الـ Pipeline: {e}")
+        logger.critical(f" خطأ غير متوقع أثناء تشغيل الـ Pipeline: {e}")
     finally:
         producer.close()
         logger.info("🔌 تم إغلاق اتصال Kafka بأمان.")

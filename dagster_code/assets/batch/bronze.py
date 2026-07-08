@@ -6,7 +6,7 @@ from .utils import get_spark_session
 
 @asset(
     group_name="batch_pipeline", 
-    description="استخراج بيانات الأوبئة الخام من CSV وتحويلها إلى Parquet في الطبقة البرونزية"
+    description="Bronze layer asset for processing raw outbreak data from CSV files to Parquet format in S3."
 )
 def bronze_raw_outbreak_data():
     # 1. إعداد جلسة Spark باستخدام دالة utils (لتوحيد الإعدادات وفصل المهام)

@@ -16,12 +16,10 @@ def load_gold_data_warehouse(context):
 
     logger = get_dagster_logger()
 
-    # ==========================================
     # 1. Spark Session
     # ==========================================
     spark = get_spark_session("Gold_Layer_Atomic_Production")
 
-    # ==========================================
     # 2. Read Silver
     # ==========================================
     silver_path = "s3a://outbreak-data/silver/outbreaks_cleaned_parquet"
@@ -29,7 +27,6 @@ def load_gold_data_warehouse(context):
 
     logger.info(f"Silver loaded: {silver_df.count()} rows")
 
-    # ==========================================
     # 3. ClickHouse Config
     # ==========================================
     CLICKHOUSE_URL = "http://clickhouse:8123/"
@@ -37,7 +34,6 @@ def load_gold_data_warehouse(context):
     USER = "abdullah_developer"
     PASSWORD = "MySecurePassword123"
 
-    # ==========================================
     # 4. DIM_LOCATION (مع إصلاح unsd_region)
     # ==========================================
     dim_location = (
@@ -64,8 +60,8 @@ def load_gold_data_warehouse(context):
         )
     )
 
-    # ==========================================
-    # 5. DIM_DISEASE (SCD2 مع disease_key ثابت)
+ 
+    # 5. DIM_DISEASE (SCD2 
     # ==========================================
     silver_disease = (
         silver_df
@@ -87,7 +83,7 @@ def load_gold_data_warehouse(context):
         .withColumn("is_current", F.lit(1))
     )
 
-    # ==========================================
+   
     # 6. FACT TABLE
     # ==========================================
     fact_outbreaks = (
@@ -114,14 +110,14 @@ def load_gold_data_warehouse(context):
         .dropDuplicates(["outbreak_id"])
     )
 
-    # ==========================================
+
     # 7. WRITER - نفس الكود القديم الناجح
     # ==========================================
     def write_to_clickhouse(df, table_name):
-        logger.info(f"📤 Writing {table_name}...")
+        logger.info(f" Writing {table_name}...")
         
         rows = df.collect()
-        logger.info(f"📊 {table_name}: {len(rows)} rows")
+        logger.info(f" {table_name}: {len(rows)} rows")
         
         if not rows:
             return 0
@@ -148,18 +144,17 @@ def load_gold_data_warehouse(context):
                 
                 if response.status_code == 200:
                     inserted += len(batch)
-                    logger.info(f"✅ {table_name}: Batch {batch_num}/{total_batches} done ({len(batch)} rows)")
+                    logger.info(f" {table_name}: Batch {batch_num}/{total_batches} done ({len(batch)} rows)")
                 else:
                     raise Exception(f"HTTP {response.status_code}: {response.text[:200]}")
                     
             except Exception as e:
-                logger.error(f"❌ {table_name}: {str(e)}")
+                logger.error(f" {table_name}: {str(e)}")
                 raise
         
-        logger.info(f"✅ {table_name}: {inserted} rows written")
+        logger.info(f" {table_name}: {inserted} rows written")
         return inserted
 
-    # ==========================================
     # 8. SCD2 EXPIRATION (باستخدام UPDATE)
     # ==========================================
     def expire_old_diseases(names):
@@ -185,11 +180,10 @@ def load_gold_data_warehouse(context):
                     params={"query": query},
                     auth=(USER, PASSWORD)
                 )
-                logger.info(f"✅ SCD2 expired batch: {len(chunk)} diseases")
+                logger.info(f" SCD2 expired batch: {len(chunk)} diseases")
             except Exception as e:
-                logger.error(f"❌ SCD2 expiration error: {str(e)}")
+                logger.error(f" SCD2 expiration error: {str(e)}")
 
-    # ==========================================
     # 9. EXECUTION (نفس الترتيب القديم)
     # ==========================================
     try:
@@ -209,7 +203,6 @@ def load_gold_data_warehouse(context):
         logger.error(f"PIPELINE FAILED: {str(e)}")
         raise
 
-    # ==========================================
     # 10. METADATA
     # ==========================================
     return Output(

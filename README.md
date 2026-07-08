@@ -107,7 +107,7 @@ The following diagram illustrates the complete end-to-end architecture of the He
 # Project Structure
 
 ```text
-dagster_space/
+Health Outbreak Monitoring System/
 
 ├── checkpoints/                 
 │   └── Spark Streaming checkpoint metadata
